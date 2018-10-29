@@ -1,0 +1,194 @@
+{
+  "$schema": "http://schemas.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+      "appSvcName": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 40,
+          "metadata": {
+              "description": "Name of the Function App resource."
+          }
+      },
+      "appSvcPlanName": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 40,
+          "metadata": {
+              "description": "Name of the App Service Plan resource."
+          }
+      },
+      "storageAccountName": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 23,
+          "metadata": {
+              "description": "Name of the Storage Account resource."
+          }
+      },
+      "appInsightsName": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 40,
+          "metadata": {
+              "description": "Name of the Application Insights resource."
+          }
+      },
+      "additionalIPs": {
+          "type": "string",
+          "defaultValue": "",
+          "metadata": {
+              "description": "A comma delimited string of additional IPs or IP ranges to allow through the firewall."
+          }
+      },
+      "defaultAction": {
+          "type": "string",
+          "defaultValue": "Deny",
+          "allowedValues": [
+              "Allow",
+              "Deny"
+          ],
+          "metadata": {
+              "description": "Specify the default action of allow or deny when no other rules match (Allow or Deny)."
+          }
+      },
+      "location": {
+          "type": "string",
+          "defaultValue": "northcentralus",
+          "metadata": {
+              "description": "Location for resource."
+          }
+      }
+  },
+  "variables": {
+      "appSvcPlanResource": "[resourceId('Microsoft.Web/serverfarms', parameters('appSvcPlanName'))]",
+      "TagTemplateVersion": "[if(contains(deployment().name, '-'), substring(deployment().name, 0, indexof(deployment().name, '-')), deployment().name)]",
+      "appSvcName": "[parameters('appSvcName')]",
+      "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appSvcPlanName'))]",
+      "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+      "appInsightsId": "[resourceId('microsoft.insights/components', parameters('appInsightsName'))]",
+      "installCoreExtensions": "[bool('true')]",
+      "location": "[toLower(replace(if(empty(parameters('location')), resourceGroup().location, parameters('location')), ' ', ''))]",
+      "standardIPs": "",
+      "allowedIPs": "[if(greater(length(parameters('additionalIPs')), 0), concat(variables('standardIPs'), ', ', parameters('additionalIPs')), variables('standardIPs'))]",
+      "emptyArray": [],
+      "allowedIPArray": "[if(greater(length(variables('allowedIPs')), 0), split(replace(variables('allowedIPs'),' ' ,''), ','), variables('emptyArray'))]",
+      "ipCount": "[length(variables('allowedIPArray'))]",
+      "ipCountAdjusted": "[if(greater(variables('ipCount'), 0), variables('ipCount'), 1)]",
+      "ipArray": "[if(greater(variables('ipCount'), 0), variables('allowedIPArray'), array('0.0.0.0'))]",
+      "iprules-array-on-object": {
+          "copy": [
+              {
+                  "name": "ipRules",
+                  "count": "[variables('ipCountAdjusted')]",
+                  "input": {
+                      "ipAddress": "[variables('ipArray')[copyIndex('iprules')]]",
+                      "action": "allow"
+                  }
+              }
+          ]
+      },
+      "ipRulesArray": "[if(equals(parameters('defaultAction'),'Deny'), variables('iprules-array-on-object').ipRules, variables('emptyArray'))]"
+  },
+  "resources": [
+      {
+          "type": "Microsoft.Web/sites",
+          "apiVersion": "2016-08-01",
+          "name": "[variables('appSvcName')]",
+          "location": "[variables('location')]",
+          "kind": "app",
+          "dependsOn": [],
+          "tags": {
+              "[concat('hidden-related:', variables('appSvcPlanResource'))]": "Resource",
+              "Template_Version": "[variables('TagTemplateVersion')]"
+          },
+          "identity": {
+              "type": "SystemAssigned"
+          },
+          "properties": {
+              "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appSvcPlanName'))]",
+              "siteConfig": {
+                  "ipSecurityRestrictions": "[variables('ipRulesArray')]",
+                  "appSettings": [
+                      {
+                          "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                          "value": "[reference(variables('appInsightsId'), '2015-05-01').InstrumentationKey]"
+                      }
+                  ],
+                  "cors": {
+                      "allowedOrigins": ["*"]
+                  },
+                  "use32BitWorkerProcess": true,
+                  "minTlsVersion": "1.1",
+                  "ftpsState": "FtpsOnly",
+                  "httpLoggingEnabled": true,
+                  "detailedErrorLoggingEnabled": true
+              },
+              "httpsOnly": true
+          },
+          "resources": [
+              {
+                  "apiVersion": "2015-08-01",
+                  "name": "Microsoft.ApplicationInsights.AzureWebSites",
+                  "type": "siteextensions",
+                  "dependsOn": [
+                      "[resourceId('Microsoft.Web/Sites', parameters('appSvcName'))]"
+                  ],
+                  "properties": {}
+              },
+              {
+                  "apiVersion": "2015-08-01",
+                  "condition": "[variables('installCoreExtensions')]",
+                  "name": "Microsoft.AspNetCore.AzureAppServices.SiteExtension",
+                  "type": "siteextensions",
+                  "dependsOn": [
+                      "[resourceId('Microsoft.Web/Sites', parameters('appSvcName'))]"
+                  ],
+                  "properties": {}
+              }
+          ]
+      }
+  ],
+  "outputs": {
+      "appSvcName": {
+          "type": "string",
+          "value": "[variables('appSvcName')]"
+      },
+      "storageAccountName": {
+          "type": "string",
+          "value": "[parameters('storageAccountName')]"
+      },
+      "appSvcPlanName": {
+          "type": "string",
+          "value": "[parameters('appSvcPlanName')]"
+      },
+      "appInsightsName": {
+          "type": "string",
+          "value": "[parameters('appInsightsName')]"
+      },
+      "serverFarmId": {
+          "type": "string",
+          "value": "[variables('serverFarmId')]"
+      },
+      "storageAccountId": {
+          "type": "string",
+          "value": "[variables('storageAccountId')]"
+      },
+      "appInsightsId": {
+          "type": "string",
+          "value": "[variables('appInsightsId')]"
+      },
+      "ipRulesArray": {
+          "type": "array",
+          "value": "[variables('ipRulesArray')]"
+      },
+      "TagTemplateVersion": {
+          "type": "string",
+          "value": "[variables('TagTemplateVersion')]"
+      },
+      "location": {
+          "type": "string",
+          "value": "[variables('location')]"
+      }
+  }
+}

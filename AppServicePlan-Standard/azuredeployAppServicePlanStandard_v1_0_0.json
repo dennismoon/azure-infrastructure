@@ -1,0 +1,84 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appSvcPlanName":{
+            "type":"string",
+            "minLength":5,
+            "maxLength":40,
+            "metadata":{
+               "description":"Name of the App Service Plan resource."
+            }
+         },
+         "appSvcPlanSkuName": {
+             "type": "string",
+             "defaultValue": "F1",
+             "allowedValues": [
+                 "F1",
+                 "D1",
+                 "B1",
+                 "B2",
+                 "B3",
+                 "S1",
+                 "S2",
+                 "S3",
+                 "P1",
+                 "P2",
+                 "P3",
+                 "P4"
+             ],
+             "metadata": {
+                 "description": "Describes the plan's pricing tier and capacity. Check details at https://azure.microsoft.com/en-us/pricing/details/app-service/"
+             }
+         },
+        "location": {
+            "type": "string",
+            "defaultValue": "northcentralus",
+            "metadata": {
+              "description": "Location for resource."
+            }
+        }
+    },
+    "variables": {
+        "TagTemplateVersion": "[if(contains(deployment().name, '-'), substring(deployment().name, 0, indexof(deployment().name, '-')), deployment().name)]",
+        "appSvcPlanName": "[parameters('appSvcPlanName')]",
+        "location": "[toLower(replace(if(empty(parameters('location')), resourceGroup().location, parameters('location')), ' ', ''))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2015-08-01",
+            "name": "[variables('appSvcPlanName')]",
+            "location": "[variables('location')]",
+            "sku": {
+                "name": "[parameters('appSvcPlanSkuName')]"
+            },
+            "dependsOn": [],
+            "tags": {
+                "Template_Version": "[variables('TagTemplateVersion')]"
+            },
+            "properties": { 
+                "name": "[parameters('appSvcPlanName')]",     
+                "numberOfWorkers": 1
+            }
+        }
+    ],
+    "outputs": {
+        "appSvcPlanName": {
+          "value": "[parameters('appSvcPlanName')]",
+          "type": "string"
+        },
+        "appSvcPlanSkuName": {
+          "value": "[parameters('appSvcPlanSkuName')]",
+          "type": "string"
+        },
+        "TagTemplateVersion": {
+            "type": "string",
+            "value": "[variables('TagTemplateVersion')]"
+        },
+        "location": {
+            "type": "string",
+            "value": "[variables('location')]"
+        }
+    }
+}

@@ -1,0 +1,51 @@
+{
+    "$schema": "http://schemas.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appSvcName": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 40,
+            "metadata": {
+                "description": "Name of the Function App resource."
+            }
+        }
+    },
+    "variables": {
+        "appSvcName": "[parameters('appSvcName')]"
+    },
+    "resources": [
+        {
+            "name":"[concat(variables('appSvcName'), '/web')]",
+            "type":"Microsoft.Web/sites/config",
+            "apiVersion":"2016-08-01",
+            "properties":{
+                "cors": {
+                    "allowedOrigins": ["*"]
+                },
+               "use32BitWorkerProcess": false,
+               "alwaysOn": false,
+               "phpVersion":"5.6",
+               "virtualApplications":[
+                  {
+                     "virtualPath":"/",
+                     "physicalPath":"site\\wwwroot",
+                     "preloadEnabled": true,
+                     "virtualDirectories":null
+                  }
+               ],
+               "httpLoggingEnabled": true,
+               "detailedErrorLoggingEnabled": true
+            },
+            "dependsOn":[
+
+            ]
+         }
+    ],
+    "outputs": {
+        "appSvcName": {
+            "type": "string",
+            "value": "[variables('appSvcName')]"
+        }
+    }
+}

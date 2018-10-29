@@ -1,0 +1,75 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appInsightsName": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 40,
+            "defaultValue": "",
+            "metadata": {
+                "description": "Name of the App Insights resource."
+            }
+        },
+        "appSvcName": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 40,
+            "defaultValue": "",
+            "metadata": {
+                "description": "Name of the App Service resource."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "eastus",
+            "metadata": {
+              "description": "Location for resource."
+            }
+        }
+    },
+    "variables": {
+        "TagTemplateVersion": "[if(contains(deployment().name, '-'), substring(deployment().name, 0, indexof(deployment().name, '-')), deployment().name)]",
+        "appInsightsName": "[parameters('appInsightsName')]",
+        "appSvcResource": "[resourceId('Microsoft.Web/sites', parameters('appSvcName'))]",
+        "location": "[toLower(replace(if(empty(parameters('location')), resourceGroup().location, parameters('location')), ' ', ''))]"
+    },
+    "resources": [
+        {
+            "name": "[variables('appInsightsName')]",
+            "type": "Microsoft.Insights/components",
+            "location": "[variables('location')]",
+            "apiVersion": "2015-05-01",
+            "dependsOn": [],
+            "tags": {
+                "[concat('hidden-link:', variables('appSvcResource'))]": "Resource",
+                "Template_Version": "[variables('TagTemplateVersion')]"
+            },
+            "properties": {
+                "applicationId": "[variables('appInsightsName')]"
+            }
+        }
+    ],
+    "outputs": {
+        "appInsightsName": {
+            "type": "string",
+            "value": "[variables('appInsightsName')]"
+        },
+        "appSvcName": {
+            "type": "string",
+            "value": "[parameters('appSvcName')]"
+        },
+        "TagTemplateVersion": {
+            "type": "string",
+            "value": "[variables('TagTemplateVersion')]"
+        },
+        "location": {
+            "type": "string",
+            "value": "[variables('location')]"
+        },
+        "appInsightsKey": {
+            "type": "string",
+            "value": "[reference(parameters('appInsightsName'), '2014-04-01').InstrumentationKey]"
+        }
+    }
+}

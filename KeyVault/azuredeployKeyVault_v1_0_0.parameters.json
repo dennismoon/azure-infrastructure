@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "keyVaultName": {
+      "value": ""
+    },
+    "portfolioRMObjectId": {
+      "value": ""
+    },
+    "provisioningObjectId": {
+      "value": ""
+    },
+    "bypassExceptions": {
+      "value": "AzureServices"
+    },
+    "vNetRGName": {
+      "value": ""
+    },
+    "vNetName": {
+      "value": ""
+    },
+    "subnetName": {
+      "value": ""
+    },
+    "additionalIPs": {
+      "value": ""
+    },
+    "defaultAction": {
+      "value": "Allow"
+    },
+    "createMode": {
+      "value": "default"
+    },
+    "location": {
+      "value": "northcentralus"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appSvcPlanName":{
+            "type":"string",
+            "minLength":5,
+            "maxLength":40,
+            "metadata":{
+               "description":"Name of the App Service plan"
+            }
+         },
+        "location": {
+            "type": "string",
+            "defaultValue": "northcentralus",
+            "metadata": {
+              "description": "Location for resource."
+            }
+        }
+    },
+    "variables": {
+        "TagTemplateVersion": "[if(contains(deployment().name, '-'), substring(deployment().name, 0, indexof(deployment().name, '-')), deployment().name)]",
+        "appSvcPlanName": "[parameters('appSvcPlanName')]",
+        "location": "[toLower(replace(if(empty(parameters('location')), resourceGroup().location, parameters('location')), ' ', ''))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2015-04-01",
+            "name": "[variables('appSvcPlanName')]",
+            "location": "[variables('location')]",
+            "dependsOn": [],
+            "tags": {
+                "Template_Version": "[variables('TagTemplateVersion')]"
+            },
+            "properties": {
+                "name": "[variables('appSvcPlanName')]",
+                "computeMode": "Dynamic",
+                "sku": "Dynamic"
+            }
+        }
+    ],
+    "outputs": {
+        "appSvcPlanName": {
+          "value": "[parameters('appSvcPlanName')]",
+          "type": "string"
+        },
+        "TagTemplateVersion": {
+            "type": "string",
+            "value": "[variables('TagTemplateVersion')]"
+        },
+        "location": {
+            "type": "string",
+            "value": "[variables('location')]"
+        }
+    }
+}

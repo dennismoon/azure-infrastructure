@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appSvcName": {
+      "value": ""
+    },
+    "appSvcPlanName": {
+      "value": ""
+    },
+    "storageAccountName": {
+      "value": ""
+    },
+    "appInsightsName": {
+      "value": ""
+    },
+    "functionVersion": {
+      "value": "~2"
+    },
+    "additionalIPs": {
+      "value": ""
+    },
+    "defaultAction": {
+      "value": "Allow"
+    },
+    "location": {
+      "value": "northcentralus"
+    }
+  }
+}

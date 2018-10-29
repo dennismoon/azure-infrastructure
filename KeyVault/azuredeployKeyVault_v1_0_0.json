@@ -1,0 +1,333 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "keyVaultName": {
+            "type": "string",
+            "defaultValue": "",
+            "minLength": 3,
+            "maxLength": 24,
+            "metadata": {
+                "description": "Name of the Key Vault resource."
+            }
+        },
+        "portfolioRMObjectId": {
+            "type": "string",
+            "defaultValue": "",
+            "minLength": 36,
+            "maxLength": 36,
+            "metadata": {
+                "description": "Object Id (guid) of the Portfolio TFS Release Manager account."
+            }
+        },
+        "provisioningObjectId": {
+            "type": "string",
+            "defaultValue": "",
+            "minLength": 36,
+            "maxLength": 36,
+            "metadata": {
+                "description": "Object Id (guid) of the Provisioning Automation Account."
+            }
+        },
+        "bypassExceptions": {
+            "type": "string",
+            "defaultValue": "AzureServices",
+            "metadata": {
+                "description": "Name the permitted set of trusted Microsoft services to bypass the network rules (Valid Values: None, AzureServices, Metrics, Logging).\n\nYou may specify more than one bypass exception."
+            }
+        },
+        "vNetRGName": {
+            "type": "string",
+            "defaultValue": "",
+            "maxLength": 90,
+            "metadata": {
+                "description": "Name of the Resource Group that contains Virtual Network."
+            }
+        },
+        "vNetName": {
+            "type": "string",
+            "defaultValue": "",
+            "maxLength": 64,
+            "metadata": {
+                "description": "Name of the Virtual Network."
+            }
+        },
+        "subnetName": {
+            "type": "string",
+            "defaultValue": "",
+            "maxLength": 80,
+            "metadata": {
+                "description": "Name of the Subnet."
+            }
+        },
+        "additionalIPs": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "A comma delimited string of additional IPs or IP ranges (in CIDR format) to allow through the firewall."
+            }
+        },
+        "defaultAction": {
+            "type": "string",
+            "defaultValue": "Allow",
+            "allowedValues": [
+                "Allow",
+                "Deny"
+            ],
+            "metadata": {
+                "description": "Specify the allow or deny action when no other rules match (Valid options: Allow or Deny)."
+            }
+        },
+        "createMode": {
+            "type": "string",
+            "defaultValue": "default",
+            "allowedValues": [
+                "default",
+                "recover"
+            ],
+            "metadata": {
+                "description": "The Key Vault's create mode to indicate whether the vault needs to be recovered or not. (Valid options are 'recover' or 'default')"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "northcentralus",
+            "metadata": {
+                "description": "Location for the Key Vault resource."
+            }
+        }
+    },
+    "variables": {        
+        "TagTemplateVersion": "[if(contains(deployment().name, '-'), substring(deployment().name, 0, indexof(deployment().name, '-')), deployment().name)]",
+        "tenantId": "[subscription().tenantId]",
+        "subscriptionId": "[subscription().subscriptionId]",
+        "keyVaultName": "[parameters('keyVaultName')]",
+        "location": "[toLower(replace(if(empty(parameters('location')), resourceGroup().location, parameters('location')), ' ', ''))]",
+        "standardIPs": "",
+        "allowedIPs": "[if(greater(length(parameters('additionalIPs')), 0), concat(variables('standardIPs'), ', ', parameters('additionalIPs')), variables('standardIPs'))]",
+        "emptyArray": [],
+        "allowedIPArray": "[if(greater(length(variables('allowedIPs')), 0), split(replace(variables('allowedIPs'),' ' ,''), ','), variables('emptyArray'))]",
+        "ipCount": "[length(variables('allowedIPArray'))]",
+        "ipCountAdjusted": "[if(greater(variables('ipCount'), 0), variables('ipCount'), 1)]",
+        "ipArray": "[if(greater(variables('ipCount'), 0), variables('allowedIPArray'), array('0.0.0.0'))]",
+        "vNetDefined": [
+            {
+                "id": "[concat(resourceId(variables('subscriptionID'), parameters('vNetRGName'), 'Microsoft.Network/virtualNetworks', parameters('vNetName')), '/subnets/', parameters('subnetName'))]",
+                "action": "Allow"
+            }
+        ],
+        "virtualNetworkRulesRef": "[if(empty(parameters('vNetRGName')), variables('emptyArray'), if(empty(parameters('vNetName')), variables('emptyArray'), if(empty(parameters('subnetName')), variables('emptyArray'), variables('vNetDefined'))))]",
+        "iprules-array-on-object": {
+            "copy": [
+                {
+                    "name": "ipRules",
+                    "count": "[variables('ipCountAdjusted')]",
+                    "input": {
+                        "value": "[variables('ipArray')[copyIndex('iprules')]]",
+                        "action": "allow"
+                    }
+                }
+            ]
+        },
+        "ipRulesArray": "[if(equals(parameters('defaultAction'),'Deny'), variables('iprules-array-on-object').ipRules, variables('emptyArray'))]",
+        "networkAclsDefined": {
+            "bypass": "[parameters('bypassExceptions')]",
+            "virtualNetworkRules": "[variables('virtualNetworkRulesRef')]",
+            "ipRules": "[variables('ipRulesArray')]",
+            "defaultAction": "[parameters('defaultAction')]"
+        },
+        "networkAclsObject": "[variables('networkAclsDefined')]"
+    },
+    "resources": [
+        {
+            "name": "[variables('keyVaultName')]",
+            "type": "Microsoft.KeyVault/vaults",
+            "apiVersion": "2018-02-14",
+            "location": "[variables('location')]",
+            "tags": {},
+            "properties": {
+                "tenantId": "[variables('tenantId')]",
+                "sku": {
+                    "family": "A",
+                    "name": "premium"
+                },
+                "accessPolicies": [
+                    {
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "[parameters('portfolioRMObjectId')]",
+                        "permissions": {
+                            "keys": [
+                                "decrypt",
+                                "encrypt",
+                                "unwrapKey",
+                                "wrapKey",
+                                "verify",
+                                "sign",
+                                "get",
+                                "list",
+                                "update",
+                                "create",
+                                "import",
+                                "delete",
+                                "backup",
+                                "restore",
+                                "recover"
+                            ],
+                            "secrets": [
+                                "get",
+                                "list",
+                                "set",
+                                "delete",
+                                "backup",
+                                "restore",
+                                "recover"
+                            ],
+                            "certificates": [
+                                "get",
+                                "list",
+                                "delete",
+                                "create",
+                                "import",
+                                "update",
+                                "managecontacts",
+                                "getissuers",
+                                "listissuers",
+                                "setissuers",
+                                "deleteissuers",
+                                "manageissuers",
+                                "recover",
+                                "backup",
+                                "restore"
+                            ],
+                            "storage": [
+                                "get",
+                                "list",
+                                "delete",
+                                "set",
+                                "update",
+                                "regeneratekey",
+                                "getsas",
+                                "listsas",
+                                "deletesas",
+                                "setsas"
+                            ]
+                        }
+                    },
+                    {
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "[parameters('provisioningObjectId')]",
+                        "permissions": {
+                            "keys": [
+                                "decrypt",
+                                "encrypt",
+                                "unwrapKey",
+                                "wrapKey",
+                                "verify",
+                                "sign",
+                                "get",
+                                "list",
+                                "update",
+                                "create",
+                                "import",
+                                "delete",
+                                "backup",
+                                "restore",
+                                "recover"
+                            ],
+                            "secrets": [
+                                "get",
+                                "list",
+                                "set",
+                                "delete",
+                                "backup",
+                                "restore",
+                                "recover"
+                            ],
+                            "certificates": [
+                                "get",
+                                "list",
+                                "delete",
+                                "create",
+                                "import",
+                                "update",
+                                "managecontacts",
+                                "getissuers",
+                                "listissuers",
+                                "setissuers",
+                                "deleteissuers",
+                                "manageissuers",
+                                "recover",
+                                "backup",
+                                "restore"
+                            ],
+                            "storage": [
+                                "get",
+                                "list",
+                                "delete",
+                                "set",
+                                "update",
+                                "regeneratekey",
+                                "getsas",
+                                "listsas",
+                                "deletesas",
+                                "setsas"
+                            ]
+                        }
+                    }
+                ],
+                "createMode": "[parameters('createMode')]",
+                "enabledForDiskEncryption": true,
+                "enabledForDeployment": true,
+                "enabledForTemplateDeployment": true,
+                "networkAcls": "[variables('networkAclsObject')]"
+            },
+            "resources": []
+        }
+    ],
+    "outputs": {
+        "keyVaultName": {
+            "value": "[parameters('keyVaultName')]",
+            "type": "string"
+        },
+        "portfolioRMObjectId": {
+            "value": "[parameters('portfolioRMObjectId')]",
+            "type": "string"
+        },
+        "provisioningObjectId": {
+            "value": "[parameters('provisioningObjectId')]",
+            "type": "string"
+        },
+        "createMode": {
+            "value": "[parameters('createMode')]",
+            "type": "string"
+        },
+        "vNetRGName": {
+            "type": "string",
+            "value": "[parameters('vNetRGName')]"
+        },
+        "vNetName": {
+            "type": "string",
+            "value": "[parameters('vNetName')]"
+        },
+        "subnetName": {
+            "type": "string",
+            "value": "[parameters('subnetName')]"
+        },
+        "networkAclsObject": {
+            "type": "object",
+            "value": "[variables('networkAclsObject')]"
+        },
+        "TagTemplateVersion": {
+            "type": "string",
+            "value": "[variables('TagTemplateVersion')]"
+        },
+        "location": {
+            "type": "string",
+            "value": "[variables('location')]"
+        },
+        "vaultUri": {
+            "value": "[reference(variables('keyVaultName')).vaultUri]",
+            "type": "string"
+        }
+    }
+}
